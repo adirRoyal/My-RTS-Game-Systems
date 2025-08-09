@@ -153,25 +153,49 @@ public class UnitSelectionHandler : MonoBehaviour
     {
         foreach (SelectableUnit unit in selectedUnits)
         {
-            unit.Deselect();
+            if (unit != null)
+            {
+                unit.Deselect();
+            }
         }
         selectedUnits.Clear();
     }
+
 
     public void HandleRightClick(Vector2 mousePosition)
     {
         Ray ray = mainCamera.ScreenPointToRay(mousePosition);
         if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, groundLayer))
         {
-            foreach (SelectableUnit unit in selectedUnits)
+            // לפני השימוש, ננקה יחידות שנהרסו
+            selectedUnits.RemoveAll(unit => unit == null);
+
+            int unitCount = selectedUnits.Count;
+            float radius = 1.5f; // רדיוס הפיזור
+
+            for (int i = 0; i < unitCount; i++)
             {
-                if (unit.TryGetComponent(out UnitMovement mover))
+                Vector3 targetPosition;
+
+                if (unitCount == 1)
                 {
-                    mover.MoveTo(hit.point);
+                    targetPosition = hit.point;
+                }
+                else
+                {
+                    float angle = i * Mathf.PI * 2f / unitCount;
+                    float offsetX = Mathf.Cos(angle) * radius;
+                    float offsetZ = Mathf.Sin(angle) * radius;
+
+                    targetPosition = new Vector3(hit.point.x + offsetX, hit.point.y, hit.point.z + offsetZ);
+                }
+
+                if (selectedUnits[i].TryGetComponent<UnitMovement>(out UnitMovement mover))
+                {
+                    mover.MoveTo(targetPosition);
                 }
             }
 
-            // הטריגר החדש לסמן הקרקע
             OnGroundClick?.Invoke(hit.point);
         }
     }

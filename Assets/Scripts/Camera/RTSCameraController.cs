@@ -23,6 +23,7 @@ public class RTSCameraController : MonoBehaviour
 
     private float targetZoomFactor = 0.5f;
     private Vector3 currentZoomVelocity;
+    private Vector3 lastPosition;
 
     private void OnEnable()
     {
@@ -56,8 +57,15 @@ public class RTSCameraController : MonoBehaviour
     {
         Vector3 direction = new Vector3(moveInput.x, 0f, moveInput.y);
         float finalSpeed = moveSpeed * (isBoosting ? boostMultiplier : 1f);
-        transform.Translate(direction * finalSpeed * Time.deltaTime, Space.Self);
+        Vector3 movement = direction * finalSpeed * Time.deltaTime;
+
+        if (movement != Vector3.zero)
+        {
+            transform.Translate(movement, Space.Self);
+            lastPosition = transform.position;
+        }
     }
+
 
     private void HandleZoom()
     {
