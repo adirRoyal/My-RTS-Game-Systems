@@ -127,6 +127,8 @@ GameObject:
   - component: {fileID: -408192398869070870}
   - component: {fileID: 1612841430442476125}
   - component: {fileID: 3904890463287993531}
+  - component: {fileID: -7557896075886555765}
+  - component: {fileID: 1750758191028584059}
   m_Layer: 6
   m_Name: Unit
   m_TagString: Untagged
@@ -321,6 +323,42 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   hitEffectPrefab: {fileID: 2504214343621411470, guid: 3ed0d324122d7b24eaec75c55c74aafc,
     type: 3}
+--- !u!114 &-7557896075886555765
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4974378641072347464}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 4875fe58643af6346a8aa64c2daf8769, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  gatherRate: 10
+  gatherInterval: 1.5
+  gatherDistance: 2
+--- !u!114 &1750758191028584059
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4974378641072347464}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5a96303f214b5b04fa921f6bfb241f0b, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  currentState: 0
+  detectionRange: 10
+  unitLayer:
+    serializedVersion: 2
+    m_Bits: 128
+  patrolRadius: 5
+  idleMinTime: 1
+  idleMaxTime: 2
+  stopDistance: 1
 --- !u!1 &8242303677438026859
 GameObject:
   m_ObjectHideFlags: 0

@@ -231,7 +231,7 @@ public class UnitSelectionHandler : MonoBehaviour
                         }
                         else if (unit.TryGetComponent<UnitMovement>(out var mover))
                         {
-                            mover.MoveTo(resourceNode.transform.position);
+                            mover.MoveTo(resourceNode.transform.position, isPlayerCommand:true) ;
                         }
                     }
                     return; // Command handled, exit early
@@ -280,7 +280,7 @@ public class UnitSelectionHandler : MonoBehaviour
             }
             else if (selectedUnits[i].TryGetComponent<UnitMovement>(out var mover))
             {
-                mover.MoveTo(targetPosition);
+                mover.MoveTo(targetPosition, isPlayerCommand: true);
             }
         }
 
