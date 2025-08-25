@@ -1,37 +1,40 @@
 using UnityEngine;
 using System.Collections;
 
+/// <summary>
+/// Handles unit resource gathering with integration to AIController and GameManager.
+/// </summary>
 public class ResourceGathering : MonoBehaviour
 {
-    [SerializeField] private int gatherRate = 10;           // How much resource gathered each time
-    [SerializeField] private float gatherInterval = 1.5f;   // Time between gather actions
-    [SerializeField] private float gatherDistance = 2f;     // Max distance from resource to start gathering
+    [Header("Gathering Settings")]
+    [SerializeField] private int gatherRate = 10;
+    [SerializeField] private float gatherInterval = 1.5f;
+    [SerializeField] private float gatherDistance = 2f;
 
     private UnitMovement unitMovement;
     private ResourceNode targetResource;
+    private AIController aiController;
 
-    // Coroutines for arrival check and gathering loop
     private Coroutine gatherCoroutine;
     private Coroutine arrivalCheckCoroutine;
     private bool isGathering = false;
 
     private void Awake()
     {
-        // Cache reference to UnitMovement component for movement commands
         unitMovement = GetComponent<UnitMovement>();
+        aiController = GetComponent<AIController>();
     }
 
-    // Starts gathering from a given resource node
+    /// <summary>
+    /// Starts moving to a resource node and begins gathering when in range.
+    /// </summary>
     public void StartGathering(ResourceNode resourceNode)
     {
-        // If already gathering, stop previous gathering process before starting new one
         StopGathering();
-
         targetResource = resourceNode;
         MoveToResource();
     }
 
-    // Sends the unit to the resource position and starts checking arrival
     private void MoveToResource()
     {
         if (targetResource != null)
@@ -41,14 +44,12 @@ public class ResourceGathering : MonoBehaviour
         }
     }
 
-    // Coroutine: waits until unit is close enough to resource, then starts gathering
     private IEnumerator CheckArrivalAndGather()
     {
         while (!isGathering)
         {
             if (targetResource == null)
             {
-                // Resource destroyed or null — stop gathering
                 StopGathering();
                 yield break;
             }
@@ -57,36 +58,35 @@ public class ResourceGathering : MonoBehaviour
             if (distance <= gatherDistance)
             {
                 isGathering = true;
+                aiController?.StartGathering(); // Notify AI we started gathering
                 gatherCoroutine = StartCoroutine(GatherRoutine());
-                yield break; // Exit arrival checking coroutine once gathering starts
+                yield break;
             }
 
             yield return null;
         }
     }
 
-    // Coroutine: gathers resource repeatedly at intervals until resource depleted or gathering stopped
     private IEnumerator GatherRoutine()
     {
         while (isGathering && targetResource != null)
         {
-            // Gather from resource and add to global resource manager
             int gatheredAmount = targetResource.Gather(gatherRate);
-
             GameManager.Instance.ResourceManager.AddResource(targetResource.resourceType, gatheredAmount);
 
             yield return new WaitForSeconds(gatherInterval);
 
             if (targetResource.amount <= 0)
             {
-                // Resource depleted — stop gathering
                 StopGathering();
                 yield break;
             }
         }
     }
 
-    // Stops all gathering-related coroutines and clears target/resource state
+    /// <summary>
+    /// Stops all gathering activity and resets state.
+    /// </summary>
     public void StopGathering()
     {
         if (arrivalCheckCoroutine != null)
@@ -103,9 +103,13 @@ public class ResourceGathering : MonoBehaviour
 
         isGathering = false;
         targetResource = null;
+
+        aiController?.StopGathering(); // Notify AI to go back to idle
     }
 
-    // IMPORTANT: override MoveTo to stop gathering if unit is moved manually by player or command
+    /// <summary>
+    /// Command the unit to move somewhere manually, canceling gathering.
+    /// </summary>
     public void MoveTo(Vector3 position)
     {
         StopGathering();

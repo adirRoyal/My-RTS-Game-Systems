@@ -11,6 +11,7 @@ public class AttackSystem : MonoBehaviour
     [SerializeField] private HitVisualEffect hitVisualEffect; // Effect to show when hitting enemy
 
     private float lastAttackTime;                             // When we last attacked
+    private Collider[] enemiesBuffer = new Collider[10]; // buffer לחיסכון בהקצאה
 
     public event Action OnAttack;                             // Event called when attack happens
 
@@ -25,29 +26,21 @@ public class AttackSystem : MonoBehaviour
 
     private void TryAttack()
     {
-        // Find all enemies inside the attack range sphere
-        Collider[] enemiesInRange = Physics.OverlapSphere(attackOrigin.position, attackRange, enemyLayer);
+        int hits = Physics.OverlapSphereNonAlloc(attackOrigin.position, attackRange, enemiesBuffer, enemyLayer);
 
-        // Go through all enemies found
-        foreach (Collider enemy in enemiesInRange)
+        for (int i = 0; i < hits; i++)
         {
-            // Check if this enemy has a HealthSystem component
+            Collider enemy = enemiesBuffer[i];
             if (enemy.TryGetComponent(out HealthSystem enemyHealth))
             {
-                // Play hit effect a little above enemy
-                hitVisualEffect.PlayEffect(enemy.transform.position + Vector3.up * 1f);
-
-                // Make enemy take damage
+                hitVisualEffect.PlayEffect(enemy.transform.position + Vector3.up);
                 enemyHealth.TakeDamage(damageAmount);
 
-                // Update last attack time so cooldown works
                 lastAttackTime = Time.time;
-
-                // Tell listeners that attack happened
                 OnAttack?.Invoke();
-
-                break;  // Attack only one enemy per attack
+                break; // תקוף אויב אחד בלבד
             }
+
         }
     }
 }

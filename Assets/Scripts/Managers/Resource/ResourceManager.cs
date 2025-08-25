@@ -5,22 +5,28 @@ public class ResourceManager
 {
     private Dictionary<ResourceType, Resource> resources = new Dictionary<ResourceType, Resource>();
 
-    // אירועים לשינוי משאבים (לממשק משתמש או מערכות אחרות)
+    // Population 
+    public int CurrentSupply { get; private set; }
+    public int MaxSupply { get; private set; }
+
+    // Events for UI updates
     public event Action<ResourceType, int> OnResourceAmountChanged;
+    public event Action<int, int> OnSupplyChanged; // current, max
 
     public ResourceManager()
     {
-        // אתחול המשאבים ההתחלתי - אפשר לשנות לפי צורך
+        // Initialize all resources at 0
         foreach (ResourceType type in Enum.GetValues(typeof(ResourceType)))
         {
             resources[type] = new Resource(type, 0);
         }
+
+        CurrentSupply = 0;
+        MaxSupply = 0;
     }
 
-    public int GetAmount(ResourceType type)
-    {
-        return resources[type].Amount;
-    }
+    #region Generic Resource Access
+    public int GetAmount(ResourceType type) => resources[type].Amount;
 
     public void AddResource(ResourceType type, int amount)
     {
@@ -32,13 +38,10 @@ public class ResourceManager
     {
         bool success = resources[type].Consume(amount);
         if (success)
-        {
             OnResourceAmountChanged?.Invoke(type, resources[type].Amount);
-        }
         return success;
     }
 
-    // בדיקה אם יש מספיק משאבים מסוגים שונים (רשימה)
     public bool HasEnoughResources(Dictionary<ResourceType, int> requiredResources)
     {
         foreach (var pair in requiredResources)
@@ -49,7 +52,6 @@ public class ResourceManager
         return true;
     }
 
-    // צריכה מרובת משאבים (כל המשאבים ביחד)
     public bool ConsumeResources(Dictionary<ResourceType, int> requiredResources)
     {
         if (!HasEnoughResources(requiredResources))
@@ -61,4 +63,38 @@ public class ResourceManager
         }
         return true;
     }
+    #endregion
+
+    #region Convenience Wrappers
+    // Quick accessors (old style compatibility)
+    public int Gold => GetAmount(ResourceType.Gold);
+    public int Wood => GetAmount(ResourceType.Wood);
+    public int Food => GetAmount(ResourceType.Food);
+    #endregion
+
+    #region Supply System
+    public void AddSupplyCap(int amount)
+    {
+        MaxSupply += amount;
+        OnSupplyChanged?.Invoke(CurrentSupply, MaxSupply);
+    }
+
+    public void ConsumeSupply(int amount)
+    {
+        CurrentSupply += amount;
+        OnSupplyChanged?.Invoke(CurrentSupply, MaxSupply);
+    }
+
+    public void ReleaseSupply(int amount)
+    {
+        CurrentSupply -= amount;
+        if (CurrentSupply < 0) CurrentSupply = 0;
+        OnSupplyChanged?.Invoke(CurrentSupply, MaxSupply);
+    }
+
+    public bool HasFreeSupply(int amountNeeded)
+    {
+        return CurrentSupply + amountNeeded <= MaxSupply;
+    }
+    #endregion
 }
