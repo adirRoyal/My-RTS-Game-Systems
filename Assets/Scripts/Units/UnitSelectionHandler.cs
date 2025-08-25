@@ -26,6 +26,7 @@ public class UnitSelectionHandler : MonoBehaviour
 
     [SerializeField] private float gatherClickRadius = 2f; // Radius around click to detect nearby resources
 
+
     private Vector2 startPosition;                          // Mouse position at drag start
     private Vector2 currentMousePosition;                   // Current mouse position
     private bool isDragging = false;                        // Are we currently dragging selection box
@@ -33,8 +34,15 @@ public class UnitSelectionHandler : MonoBehaviour
     // List of currently selected units
     private List<SelectableUnit> selectedUnits = new();
 
+    private List<SelectableUnit> allUnits = new List<SelectableUnit>();
+
     // Event fired when selection changes, passes count of selected units
     public event Action<int> OnSelectionChanged;
+    private void Awake()
+    {
+        // מאחסן את כל היחידות בתחילת המשחק
+        allUnits.AddRange(FindObjectsOfType<SelectableUnit>());
+    }
 
     private void Start()
     {
@@ -136,8 +144,9 @@ public class UnitSelectionHandler : MonoBehaviour
             selectionBoxUI.sizeDelta);
 
         // Iterate all selectable units in scene and check if inside selection box
-        foreach (SelectableUnit unit in GameObject.FindObjectsByType<SelectableUnit>(UnityEngine.FindObjectsSortMode.None))
+        foreach (SelectableUnit unit in allUnits)
         {
+            if (unit == null) continue;
             Vector2 screenPos = mainCamera.WorldToScreenPoint(unit.transform.position);
 
             // Convert screen position to local canvas space for comparison
@@ -225,6 +234,7 @@ public class UnitSelectionHandler : MonoBehaviour
                     // For each selected unit, try to start gathering resource or move to it if gathering not supported
                     foreach (var unit in selectedUnits)
                     {
+                        if (unit == null) continue;
                         if (unit.TryGetComponent<ResourceGathering>(out var gather))
                         {
                             gather.StartGathering(resourceNode);
@@ -286,4 +296,16 @@ public class UnitSelectionHandler : MonoBehaviour
 
         OnGroundClick?.Invoke(point);
     }
+
+    public void RegisterUnit(SelectableUnit unit)
+    {
+        if (!allUnits.Contains(unit))
+            allUnits.Add(unit);
+    }
+
+    public void UnregisterUnit(SelectableUnit unit)
+    {
+        allUnits.Remove(unit);
+    }
+
 }

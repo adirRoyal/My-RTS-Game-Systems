@@ -1,50 +1,53 @@
 using UnityEngine;
+using System.Collections;
 
 public class GroundMarkerController : MonoBehaviour
 {
-    [Header("Marker Settings")]
-    [SerializeField] private GameObject groundMarkerPrefab;  // Prefab for the ground marker
-    [SerializeField] private float markerDuration = 1.5f;     // How long marker stays visible
+    [SerializeField] private GameObject groundMarkerPrefab;
+    [SerializeField] private float markerDuration = 1.5f;
+    [SerializeField] private UnitSelectionHandler selectionHandler;
 
-    [Header("Dependencies")]
-    [SerializeField] private UnitSelectionHandler selectionHandler; // Reference to unit selection handler
-
-    private GameObject currentMarker; // Reference to the current active marker
+    private GameObject currentMarker;           // הסימון הנוכחי
+    private Coroutine returnCoroutine;          // הקרוטינה שהחזיקה את הסימון
 
     private void OnEnable()
     {
-        // Subscribe to ground click event
         if (selectionHandler != null)
-        {
             selectionHandler.OnGroundClick += ShowMarker;
-        }
     }
 
     private void OnDisable()
     {
-        // Unsubscribe from ground click event
         if (selectionHandler != null)
-        {
             selectionHandler.OnGroundClick -= ShowMarker;
-        }
     }
 
     private void ShowMarker(Vector3 position)
     {
-        // If a marker already exists, destroy it
+        // אם יש סימון קודם, החזר אותו מיד לבריכה ובטל הקרוטינה
         if (currentMarker != null)
         {
-            Destroy(currentMarker);
+            if (returnCoroutine != null)
+                StopCoroutine(returnCoroutine);
+
+            PoolManager.Instance.ReturnToPool(groundMarkerPrefab, currentMarker);
+            currentMarker = null;
         }
 
-        // Position marker slightly above ground and rotate it 90 degrees on X axis
-        Vector3 markerPosition = position + Vector3.up * 0.01f;
-        Quaternion markerRotation = Quaternion.Euler(90f, 0f, 0f);
+        // קבל סימון חדש מהבריכה
+        currentMarker = PoolManager.Instance.GetFromPool(groundMarkerPrefab);
+        currentMarker.transform.position = position + Vector3.up * 0.01f;
+        currentMarker.transform.rotation = Quaternion.Euler(90f, 0f, 0f);
 
-        // Create new marker at the position with rotation
-        currentMarker = Instantiate(groundMarkerPrefab, markerPosition, markerRotation);
+        // הפעל את הקרוטינה להחזרת הסימון לאחר זמן
+        returnCoroutine = StartCoroutine(ReturnAfterSeconds(currentMarker, groundMarkerPrefab, markerDuration));
+    }
 
-        // Destroy marker after some time
-        Destroy(currentMarker, markerDuration);
+    private IEnumerator ReturnAfterSeconds(GameObject obj, GameObject prefab, float seconds)
+    {
+        yield return new WaitForSeconds(seconds);
+        PoolManager.Instance.ReturnToPool(prefab, obj);
+        currentMarker = null;    // נקה את הסימון הנוכחי
+        returnCoroutine = null;  // נקה את הקרוטינה
     }
 }

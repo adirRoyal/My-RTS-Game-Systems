@@ -37,5 +37,11 @@ public class SelectableUnit : MonoBehaviour
         OnDeselected?.Invoke(this);
     }
 
+    private void OnDestroy()
+    {
+        var handler = FindObjectOfType<UnitSelectionHandler>();
+        if (handler != null)
+            handler.UnregisterUnit(this);
+    }
 
 }

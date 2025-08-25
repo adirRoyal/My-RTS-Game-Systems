@@ -7,7 +7,7 @@ public class HealthSystem : MonoBehaviour
     private int currentHealth;                      // Current health value
 
     public event Action OnDeath;                    // Event when health reaches zero
-    public event Action<int, int> OnHealthChanged; // Event when health changes (current, max)
+    public event Action<int, int> OnHealthChanged;  // Event when health changes (current, max)
 
     private bool isDead = false;                    // Flag to avoid double calls after death
 
@@ -16,24 +16,31 @@ public class HealthSystem : MonoBehaviour
         currentHealth = maxHealth;                  // Set current health to max at start
     }
 
-    public void TakeDamage(int damageAmount)
+    /// <summary>
+    /// מוריד חיים מהאובייקט
+    /// </summary>
+    /// <param name="damageAmount">כמות נזק</param>
+    /// <returns>true אם נגרם נזק אמיתי, false אם לא</returns>
+    public bool TakeDamage(int damageAmount)
     {
-        if (isDead) return;                         // If already dead, ignore damage
+        if (isDead || damageAmount <= 0) return false;  // לא נגרם נזק
 
-        currentHealth -= damageAmount;              // Reduce health by damage amount
-        currentHealth = Mathf.Max(currentHealth, 0);// Prevent health from going below 0
+        currentHealth -= damageAmount;
+        currentHealth = Mathf.Max(currentHealth, 0);
 
-        OnHealthChanged?.Invoke(currentHealth, maxHealth); // Notify listeners about health change
+        OnHealthChanged?.Invoke(currentHealth, maxHealth);
 
-        if (currentHealth == 0)                     // If health is zero
+        if (currentHealth == 0)
         {
-            isDead = true;                          // Mark as dead
-            OnDeath?.Invoke();                      // Notify listeners about death
-
-            Destroy(gameObject);                    // Destroy this game object
+            isDead = true;
+            OnDeath?.Invoke();
+            Destroy(gameObject);
         }
+
+        return true; // נזק בוצע בהצלחה
     }
 
-    public int GetCurrentHealth() => currentHealth; // Get current health value
-    public int GetMaxHealth() => maxHealth;         // Get max health value
+    public int GetCurrentHealth() => currentHealth;
+    public int GetMaxHealth() => maxHealth;
+    public bool IsDead() => isDead;
 }
