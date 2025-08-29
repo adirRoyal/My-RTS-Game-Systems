@@ -41,7 +41,7 @@ public class UnitSelectionHandler : MonoBehaviour
     private void Awake()
     {
         // מאחסן את כל היחידות בתחילת המשחק
-        allUnits.AddRange(FindObjectsOfType<SelectableUnit>());
+        allUnits.AddRange(FindObjectsByType<SelectableUnit>(FindObjectsSortMode.None));
     }
 
     private void Start()

@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fd6dca040c623104bbd0b0408713a649, type: 3}
+  m_Name: Castel
+  m_EditorClassIdentifier: 
+  buildingName: Castel
+  icon: {fileID: 21300000, guid: 2ef854975c018bd4a870cbbd6c2e95a6, type: 3}
+  prefab: {fileID: 4296429689389196826, guid: 998c20b887febea4ebf8b59553e65f92, type: 3}
+  ghostPrefab: {fileID: 4296429689389196826, guid: f159416496b83d1479bda97860c16ec8,
+    type: 3}
+  buildTime: 5
+  costGold: 50
+  costWood: 100
+  requiredPopulation: 0
+  isResourceBuilding: 0
+  isMilitaryBuilding: 0
+  providesPopulation: 0
+  populationProvided: 0
+  footprintSize: {x: 2, y: 2}
+  placementMask:
+    serializedVersion: 2
+    m_Bits: 8

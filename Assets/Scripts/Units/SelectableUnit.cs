@@ -39,7 +39,7 @@ public class SelectableUnit : MonoBehaviour
 
     private void OnDestroy()
     {
-        var handler = FindObjectOfType<UnitSelectionHandler>();
+        var handler = FindFirstObjectByType<UnitSelectionHandler>();
         if (handler != null)
             handler.UnregisterUnit(this);
     }
