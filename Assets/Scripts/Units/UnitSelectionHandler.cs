@@ -2,120 +2,110 @@ using System;
 using System.Collections.Generic;
 using UnityEngine;
 
-/// <summary>
-/// Main handler for selecting units and issuing commands in RTS style.
-/// Supports both click and drag selection, and right-click commands for movement and resource gathering.
-/// </summary>
 public class UnitSelectionHandler : MonoBehaviour
 {
-    // Event fired when player right-clicks on the ground, passes the target position
-    public event Action<Vector3> OnGroundClick;
+    public event Action<Vector3> OnGroundClick; // event for when player clicks on ground
 
     [Header("UI References")]
-    [SerializeField] private RectTransform selectionBoxUI; // Visual rectangle for drag selection box
-    [SerializeField] private Canvas canvas;                // Canvas for UI elements
+    [SerializeField] private RectTransform selectionBoxUI; // the UI box that shows drag selection
+    [SerializeField] private Canvas canvas; // canvas used to draw selection box
 
     [Header("Layers")]
-    [SerializeField] private LayerMask unitLayer;          // Layer for selectable units
-    [SerializeField] private LayerMask groundLayer;        // Layer for ground clicks
-    [SerializeField] private LayerMask resourceLayer;      // Layer for resource nodes
+    [SerializeField] private LayerMask selectableLayer; // layer of units/buildings
+    [SerializeField] private LayerMask groundLayer; // layer of the ground
+    [SerializeField] private LayerMask resourceLayer; // layer of resources (trees, etc)
 
     [Header("Camera & Input")]
-    [SerializeField] private Camera mainCamera;            // Camera for raycasting
-    [SerializeField] private float dragThreshold = 10f;    // Minimum drag distance before selection box appears
+    [SerializeField] private Camera mainCamera; // main camera reference
+    [SerializeField] private float dragThreshold = 10f; // how much mouse must move to start drag
+    [SerializeField] private float gatherClickRadius = 2f; // radius for resource click detection
 
-    [SerializeField] private float gatherClickRadius = 2f; // Radius around click to detect nearby resources
+    private Vector2 startPosition; // mouse position when left click pressed
+    private Vector2 currentMousePosition; // updated mouse position
+    private bool isDragging = false; // true if user is dragging a selection box
+    private bool isLeftPressed = false; // true while left mouse is pressed
 
+    private readonly List<Selectable> selectedObjects = new(); // currently selected units
+    private readonly List<Selectable> allSelectables = new(); // all selectable objects in scene
 
-    private Vector2 startPosition;                          // Mouse position at drag start
-    private Vector2 currentMousePosition;                   // Current mouse position
-    private bool isDragging = false;                        // Are we currently dragging selection box
+    public event Action<int> OnSelectionChanged; // event for UI or other systems
 
-    // List of currently selected units
-    private List<SelectableUnit> selectedUnits = new();
-
-    private List<SelectableUnit> allUnits = new List<SelectableUnit>();
-
-    // Event fired when selection changes, passes count of selected units
-    public event Action<int> OnSelectionChanged;
     private void Awake()
     {
-        // מאחסן את כל היחידות בתחילת המשחק
-        allUnits.AddRange(FindObjectsByType<SelectableUnit>(FindObjectsSortMode.None));
+        // find all selectable objects in scene and store them
+        allSelectables.AddRange(FindObjectsByType<Selectable>(FindObjectsSortMode.None));
     }
 
     private void Start()
     {
-        // Initially hide selection box UI and clear any selections
-        selectionBoxUI.gameObject.SetActive(false);
-        DeselectAll();
+        selectionBoxUI.gameObject.SetActive(false); // hide box at start
+        DeselectAll(); // clear any selection
     }
 
     private void OnEnable()
     {
-        // Subscribe to input events from a centralized InputManager (decouples input logic)
+        // subscribe to input events
         InputManager.OnPointerPositionChanged += OnPointerPositionChanged;
         InputManager.OnRightClick += HandleRightClick;
+        InputManager.OnLeftPress += HandleLeftPress;
+        InputManager.OnLeftRelease += HandleLeftRelease;
     }
 
     private void OnDisable()
     {
-        // Unsubscribe to prevent memory leaks or unintended callbacks
+        // unsubscribe to avoid memory leaks
         InputManager.OnPointerPositionChanged -= OnPointerPositionChanged;
         InputManager.OnRightClick -= HandleRightClick;
+        InputManager.OnLeftPress -= HandleLeftPress;
+        InputManager.OnLeftRelease -= HandleLeftRelease;
     }
 
-    // Update current mouse position every frame from InputManager
     private void OnPointerPositionChanged(Vector2 pointerPos)
     {
-        currentMousePosition = pointerPos;
+        currentMousePosition = pointerPos; // update mouse position
+    }
+
+    private void HandleLeftPress()
+    {
+        isLeftPressed = true; // left button down
+        startPosition = currentMousePosition; // store start point
+        isDragging = false; // reset dragging
+        selectionBoxUI.gameObject.SetActive(false); // hide box initially
+    }
+
+    private void HandleLeftRelease()
+    {
+        isLeftPressed = false; // left button released
+
+        if (isDragging)
+        {
+            SelectObjectsInBox(); // select all objects in box
+        }
+        else
+        {
+            TrySelectSingleObjectOrDeselect(); // normal single click selection
+        }
+
+        isDragging = false; // reset dragging
+        selectionBoxUI.gameObject.SetActive(false); // hide box
     }
 
     private void Update()
     {
-        // Handle left mouse button down: start tracking for selection
-        if (UnityEngine.InputSystem.Mouse.current.leftButton.wasPressedThisFrame)
+        // only start drag if left button is pressed and distance is over threshold
+        if (isLeftPressed && !isDragging && Vector2.Distance(currentMousePosition, startPosition) > dragThreshold)
         {
-            startPosition = currentMousePosition;
-            isDragging = false;
+            isDragging = true; // now dragging
+            selectionBoxUI.gameObject.SetActive(true); // show UI box
         }
-        // While holding left mouse button: check drag distance and show selection box if needed
-        else if (UnityEngine.InputSystem.Mouse.current.leftButton.isPressed)
-        {
-            if (!isDragging && Vector2.Distance(currentMousePosition, startPosition) > dragThreshold)
-            {
-                isDragging = true;
-                selectionBoxUI.gameObject.SetActive(true);
-            }
 
-            if (isDragging)
-            {
-                UpdateSelectionBoxUI();
-            }
-        }
-        // On left mouse button release: finalize selection (box or single click)
-        else if (UnityEngine.InputSystem.Mouse.current.leftButton.wasReleasedThisFrame)
-        {
-            if (isDragging)
-            {
-                SelectUnitsInBox();
-            }
-            else
-            {
-                TrySelectSingleUnitOrDeselect();
-            }
-
-            isDragging = false;
-            selectionBoxUI.gameObject.SetActive(false);
-        }
+        if (isDragging)
+            UpdateSelectionBoxUI(); // update size/position of selection box
     }
 
-    /// <summary>
-    /// Updates the position and size of the UI selection box based on drag start and current mouse.
-    /// </summary>
     private void UpdateSelectionBoxUI()
     {
-        // Convert screen positions to local canvas points to size/position selection box correctly
+        // convert screen points to local canvas points
         RectTransformUtility.ScreenPointToLocalPointInRectangle(
             canvas.transform as RectTransform,
             startPosition, canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : mainCamera,
@@ -126,186 +116,153 @@ public class UnitSelectionHandler : MonoBehaviour
             currentMousePosition, canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : mainCamera,
             out Vector2 currentLocal);
 
+        // calculate size and center
         Vector2 size = currentLocal - startLocal;
         selectionBoxUI.anchoredPosition = startLocal + size / 2f;
         selectionBoxUI.sizeDelta = new Vector2(Mathf.Abs(size.x), Mathf.Abs(size.y));
     }
 
-    /// <summary>
-    /// Selects all units whose screen positions are inside the current selection box.
-    /// </summary>
-    private void SelectUnitsInBox()
+    private void SelectObjectsInBox()
     {
-        DeselectAll();
+        DeselectAll(); // clear previous selection
 
-        // Construct Rect representing selection box area
+        // define the selection rectangle
         Rect selectionRect = new Rect(
             selectionBoxUI.anchoredPosition - selectionBoxUI.sizeDelta / 2f,
             selectionBoxUI.sizeDelta);
 
-        // Iterate all selectable units in scene and check if inside selection box
-        foreach (SelectableUnit unit in allUnits)
+        foreach (Selectable selectable in allSelectables)
         {
-            if (unit == null) continue;
-            Vector2 screenPos = mainCamera.WorldToScreenPoint(unit.transform.position);
+            if (selectable == null) continue;
 
-            // Convert screen position to local canvas space for comparison
+            // get object screen position
+            Vector2 screenPos = mainCamera.WorldToScreenPoint(selectable.transform.position);
+
+            // convert to local canvas space
             RectTransformUtility.ScreenPointToLocalPointInRectangle(
                 canvas.transform as RectTransform,
                 screenPos, canvas.renderMode == RenderMode.ScreenSpaceOverlay ? null : mainCamera,
                 out Vector2 localPoint);
 
+            // check if object inside selection box
             if (selectionRect.Contains(localPoint))
             {
-                unit.Select();
-                selectedUnits.Add(unit);
+                selectable.Select(); // select object
+                selectedObjects.Add(selectable);
             }
         }
 
-        OnSelectionChanged?.Invoke(selectedUnits.Count);
+        OnSelectionChanged?.Invoke(selectedObjects.Count); // notify UI
     }
 
-    /// <summary>
-    /// Attempts to select a single unit by raycasting at mouse position,
-    /// or deselect all if clicking empty ground.
-    /// </summary>
-    private void TrySelectSingleUnitOrDeselect()
+    private void TrySelectSingleObjectOrDeselect()
     {
+        // raycast to see if a unit/building is clicked
         Ray ray = mainCamera.ScreenPointToRay(currentMousePosition);
 
-        // Raycast for selectable unit
-        if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, unitLayer))
+        if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, selectableLayer))
         {
-            if (hit.collider.TryGetComponent(out SelectableUnit unit))
+            if (hit.collider.TryGetComponent(out Selectable selectable))
             {
-                DeselectAll();
-                unit.Select();
-                selectedUnits.Add(unit);
-                OnSelectionChanged?.Invoke(selectedUnits.Count);
+                DeselectAll(); // clear previous selection
+                selectable.Select(); // select clicked object
+                selectedObjects.Add(selectable);
+
+                if (selectable is SelectableBuilding building)
+                    building.OpenPanel(); // open UI panel for building
+
+                OnSelectionChanged?.Invoke(selectedObjects.Count);
                 return;
             }
         }
 
-        // Raycast for ground click to deselect all units
+        // check ground click to deselect
         if (Physics.Raycast(ray, out RaycastHit groundHit, Mathf.Infinity, groundLayer))
         {
             DeselectAll();
-            OnSelectionChanged?.Invoke(selectedUnits.Count);
+            OnSelectionChanged?.Invoke(selectedObjects.Count);
         }
     }
 
-    /// <summary>
-    /// Deselects all currently selected units and clears selection list.
-    /// </summary>
     private void DeselectAll()
     {
-        foreach (SelectableUnit unit in selectedUnits)
-        {
-            if (unit != null)
-            {
-                unit.Deselect();
-            }
-        }
-        selectedUnits.Clear();
+        // deselect everything
+        foreach (Selectable selectable in selectedObjects)
+            selectable?.Deselect();
+
+        selectedObjects.Clear(); // clear list
     }
 
-    /// <summary>
-    /// Handles issuing commands on right-click:
-    /// - If resources nearby click: start gathering
-    /// - Else: move units to clicked point
-    /// </summary>
     public void HandleRightClick(Vector2 mousePosition)
     {
         Ray ray = mainCamera.ScreenPointToRay(mousePosition);
 
-        // Raycast to ground to get target point
+        // raycast ground first
         if (Physics.Raycast(ray, out RaycastHit hit, Mathf.Infinity, groundLayer))
         {
-            // Check for nearby resources within gatherClickRadius of clicked point
+            // check for resources near clicked point
             Collider[] hits = Physics.OverlapSphere(hit.point, gatherClickRadius, resourceLayer);
 
             if (hits.Length > 0)
             {
-                // Pick first resource node nearby (could be improved to nearest)
                 ResourceNode resourceNode = hits[0].GetComponent<ResourceNode>();
 
                 if (resourceNode != null)
                 {
-                    // For each selected unit, try to start gathering resource or move to it if gathering not supported
-                    foreach (var unit in selectedUnits)
+                    foreach (var selectable in selectedObjects)
                     {
-                        if (unit == null) continue;
-                        if (unit.TryGetComponent<ResourceGathering>(out var gather))
-                        {
-                            gather.StartGathering(resourceNode);
-                        }
-                        else if (unit.TryGetComponent<UnitMovement>(out var mover))
-                        {
-                            mover.MoveTo(resourceNode.transform.position, isPlayerCommand:true) ;
-                        }
+                        if (selectable == null) continue;
+
+                        if (selectable.TryGetComponent<ResourceGathering>(out var gather))
+                            gather.StartGathering(resourceNode); // gather resource
+                        else if (selectable.TryGetComponent<UnitMovement>(out var mover))
+                            mover.MoveTo(resourceNode.transform.position, isPlayerCommand: true); // move unit
                     }
-                    return; // Command handled, exit early
+                    return;
                 }
             }
             else
             {
-                // No resource nearby, send standard move command
-                SendMoveCommand(hit.point);
+                SendMoveCommand(hit.point); // move units to clicked point
             }
         }
     }
 
-    /// <summary>
-    /// Sends move commands to all selected units, spreading them around target position to avoid clustering.
-    /// </summary>
     private void SendMoveCommand(Vector3 point)
     {
-        selectedUnits.RemoveAll(u => u == null); // Clean null references
+        selectedObjects.RemoveAll(o => o == null); // cleanup nulls
 
-        int unitCount = selectedUnits.Count;
-        float radius = 1.5f; // Radius for spread formation
+        int unitCount = selectedObjects.Count;
+        float radius = 1.5f; // formation spacing
 
         for (int i = 0; i < unitCount; i++)
         {
-            Vector3 targetPosition;
+            // calculate formation offset if multiple units
+            Vector3 targetPosition = unitCount == 1 ? point : new Vector3(
+                point.x + Mathf.Cos(i * Mathf.PI * 2f / unitCount) * radius,
+                point.y,
+                point.z + Mathf.Sin(i * Mathf.PI * 2f / unitCount) * radius
+            );
 
-            if (unitCount == 1)
-            {
-                targetPosition = point;
-            }
-            else
-            {
-                // Spread units evenly in circle around point to avoid stacking
-                float angle = i * Mathf.PI * 2f / unitCount;
-                float offsetX = Mathf.Cos(angle) * radius;
-                float offsetZ = Mathf.Sin(angle) * radius;
-
-                targetPosition = new Vector3(point.x + offsetX, point.y, point.z + offsetZ);
-            }
-
-            // Priority: if unit supports resource gathering movement, use it to cancel gather if needed
-            if (selectedUnits[i].TryGetComponent<ResourceGathering>(out var gather))
-            {
+            if (selectedObjects[i].TryGetComponent<ResourceGathering>(out var gather))
                 gather.MoveTo(targetPosition);
-            }
-            else if (selectedUnits[i].TryGetComponent<UnitMovement>(out var mover))
-            {
+            else if (selectedObjects[i].TryGetComponent<UnitMovement>(out var mover))
                 mover.MoveTo(targetPosition, isPlayerCommand: true);
-            }
         }
 
-        OnGroundClick?.Invoke(point);
+        OnGroundClick?.Invoke(point); // notify listeners
     }
 
-    public void RegisterUnit(SelectableUnit unit)
+    public void RegisterSelectable(Selectable selectable)
     {
-        if (!allUnits.Contains(unit))
-            allUnits.Add(unit);
+        // add new selectable object dynamically
+        if (!allSelectables.Contains(selectable))
+            allSelectables.Add(selectable);
     }
 
-    public void UnregisterUnit(SelectableUnit unit)
+    public void UnregisterSelectable(Selectable selectable)
     {
-        allUnits.Remove(unit);
+        // remove selectable object dynamically
+        allSelectables.Remove(selectable);
     }
-
 }

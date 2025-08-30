@@ -68,7 +68,7 @@ public class BuildingConstruction : MonoBehaviour
         sliderGO.transform.SetParent(canvasGO.transform, false);
         progressBar = sliderGO.AddComponent<Slider>();
         progressBar.interactable = false;
-        progressBar.transition = Selectable.Transition.None;
+        progressBar.transition = UnityEngine.UI.Selectable.Transition.None;
         progressBar.minValue = 0f;
         progressBar.maxValue = buildTime;
         progressBar.value = 0f;

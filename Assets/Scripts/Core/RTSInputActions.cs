@@ -89,6 +89,15 @@ public partial class @RTSInputActions: IInputActionCollection2, IDisposable
                     ""processors"": """",
                     ""interactions"": """",
                     ""initialStateCheck"": false
+                },
+                {
+                    ""name"": ""Exit"",
+                    ""type"": ""Button"",
+                    ""id"": ""38c0871d-1c11-4e09-9650-74bb8d8e21cb"",
+                    ""expectedControlType"": ""Button"",
+                    ""processors"": """",
+                    ""interactions"": """",
+                    ""initialStateCheck"": false
                 }
             ],
             ""bindings"": [
@@ -267,6 +276,17 @@ public partial class @RTSInputActions: IInputActionCollection2, IDisposable
                     ""action"": ""LeftClick"",
                     ""isComposite"": false,
                     ""isPartOfComposite"": false
+                },
+                {
+                    ""name"": """",
+                    ""id"": ""f3a81ff8-8077-4d01-b4c7-b190c8e3ecac"",
+                    ""path"": ""<Keyboard>/escape"",
+                    ""interactions"": """",
+                    ""processors"": """",
+                    ""groups"": """",
+                    ""action"": ""Exit"",
+                    ""isComposite"": false,
+                    ""isPartOfComposite"": false
                 }
             ]
         }
@@ -282,6 +302,7 @@ public partial class @RTSInputActions: IInputActionCollection2, IDisposable
         m_Camera_PointerPosition = m_Camera.FindAction("PointerPosition", throwIfNotFound: true);
         m_Camera_RightClick = m_Camera.FindAction("RightClick", throwIfNotFound: true);
         m_Camera_LeftClick = m_Camera.FindAction("LeftClick", throwIfNotFound: true);
+        m_Camera_Exit = m_Camera.FindAction("Exit", throwIfNotFound: true);
     }
 
     public void Dispose()
@@ -350,6 +371,7 @@ public partial class @RTSInputActions: IInputActionCollection2, IDisposable
     private readonly InputAction m_Camera_PointerPosition;
     private readonly InputAction m_Camera_RightClick;
     private readonly InputAction m_Camera_LeftClick;
+    private readonly InputAction m_Camera_Exit;
     public struct CameraActions
     {
         private @RTSInputActions m_Wrapper;
@@ -361,6 +383,7 @@ public partial class @RTSInputActions: IInputActionCollection2, IDisposable
         public InputAction @PointerPosition => m_Wrapper.m_Camera_PointerPosition;
         public InputAction @RightClick => m_Wrapper.m_Camera_RightClick;
         public InputAction @LeftClick => m_Wrapper.m_Camera_LeftClick;
+        public InputAction @Exit => m_Wrapper.m_Camera_Exit;
         public InputActionMap Get() { return m_Wrapper.m_Camera; }
         public void Enable() { Get().Enable(); }
         public void Disable() { Get().Disable(); }
@@ -391,6 +414,9 @@ public partial class @RTSInputActions: IInputActionCollection2, IDisposable
             @LeftClick.started += instance.OnLeftClick;
             @LeftClick.performed += instance.OnLeftClick;
             @LeftClick.canceled += instance.OnLeftClick;
+            @Exit.started += instance.OnExit;
+            @Exit.performed += instance.OnExit;
+            @Exit.canceled += instance.OnExit;
         }
 
         private void UnregisterCallbacks(ICameraActions instance)
@@ -416,6 +442,9 @@ public partial class @RTSInputActions: IInputActionCollection2, IDisposable
             @LeftClick.started -= instance.OnLeftClick;
             @LeftClick.performed -= instance.OnLeftClick;
             @LeftClick.canceled -= instance.OnLeftClick;
+            @Exit.started -= instance.OnExit;
+            @Exit.performed -= instance.OnExit;
+            @Exit.canceled -= instance.OnExit;
         }
 
         public void RemoveCallbacks(ICameraActions instance)
@@ -442,5 +471,6 @@ public partial class @RTSInputActions: IInputActionCollection2, IDisposable
         void OnPointerPosition(InputAction.CallbackContext context);
         void OnRightClick(InputAction.CallbackContext context);
         void OnLeftClick(InputAction.CallbackContext context);
+        void OnExit(InputAction.CallbackContext context);
     }
 }

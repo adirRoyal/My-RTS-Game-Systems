@@ -3,104 +3,123 @@ using UnityEngine;
 
 /// <summary>
 /// Handles player building placement: ghost preview, placement validation, resource & supply checks.
+/// Uses InputManager (new Unity Input System) instead of old Input.
 /// </summary>
 public class BuildingPlacementSystem : MonoBehaviour
 {
     [Header("References")]
-    [SerializeField] private Camera mainCamera; // Main camera used for raycasting
+    [SerializeField] private Camera mainCamera; // Camera used for raycasts
     [SerializeField] private LayerMask groundMask;   // Ground layers allowed for placement
-    [SerializeField] private LayerMask obstacleMask; // Layers that block placement (buildings, units, obstacles)
+    [SerializeField] private LayerMask obstacleMask; // Layers that block placement (buildings, units, etc)
 
     [Header("UI")]
-    [SerializeField] private GameMessageUI messageUI; // UI for displaying messages like errors
+    [SerializeField] private GameMessageUI messageUI; // UI messages like "not enough resources"
 
     private ResourceManager resourceManager;
-    private BuildingData selectedBuilding;   // The building currently selected for placement
-    private GameObject ghostInstance;        // Transparent "ghost" prefab preview
-    private GhostVisualizer ghostVisualizer; // Controls ghost color (valid/invalid placement)
+    private BuildingData selectedBuilding;   // Building selected for placement
+    private GameObject ghostInstance;        // Transparent preview object
+    private GhostVisualizer ghostVisualizer; // Changes color depending on placement validity
+
+    private Vector2 lastPointerScreenPos;    // Last pointer position on screen
+    private Vector3 lastPointerWorldPos;     // Last pointer position projected to world
 
     private void Start()
     {
         resourceManager = GameManager.Instance.ResourceManager;
+
+        // --- Subscribe to InputManager events ---
+        InputManager.OnPointerPositionChanged += HandlePointerMoved;
+        InputManager.OnLeftClick += HandleLeftClick;
+        InputManager.OnRightClick += HandleRightClick;
+        InputManager.OnExitPressed += HandleExitPressed;
     }
 
-    private void Update()
+    private void OnDestroy()
     {
-        if (selectedBuilding == null || ghostInstance == null) return;
+        // --- Unsubscribe to avoid memory leaks ---
+        InputManager.OnPointerPositionChanged -= HandlePointerMoved;
+        InputManager.OnLeftClick -= HandleLeftClick;
+        InputManager.OnRightClick -= HandleRightClick;
+        InputManager.OnExitPressed -= HandleExitPressed;
+    }
 
-        // --- Raycast from mouse to ground ---
-        Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
+    // Called whenever mouse moves
+    private void HandlePointerMoved(Vector2 screenPos)
+    {
+        lastPointerScreenPos = screenPos;
+
+        if (selectedBuilding == null || ghostInstance == null) return; // no building, do nothing
+
+        // Raycast to ground
+        Ray ray = mainCamera.ScreenPointToRay(screenPos);
         if (Physics.Raycast(ray, out RaycastHit hit, 1000f, groundMask))
         {
-            ghostInstance.transform.position = hit.point;
+            lastPointerWorldPos = hit.point;
+            ghostInstance.transform.position = hit.point; // move ghost to mouse position
 
-            // --- Check if placement is valid ---
+            // Check placement validity
             bool isValid = IsValidPlacement(hit.point);
 
             if (ghostVisualizer != null)
             {
-                if (isValid)
-                    ghostVisualizer.SetValid();
-                else
-                    ghostVisualizer.SetInvalid();
+                if (isValid) ghostVisualizer.SetValid();   // green if valid
+                else ghostVisualizer.SetInvalid();         // red if invalid
             }
-
-            // --- Place building on left click if valid ---
-            if (isValid && Input.GetMouseButtonDown(0))
-            {
-                PlaceBuilding(hit.point);
-            }
-        }
-
-        // --- Cancel placement on right click or Escape ---
-        if (Input.GetMouseButtonDown(1) || Input.GetKeyDown(KeyCode.Escape))
-        {
-            CancelPlacement();
         }
     }
 
-    /// <summary>
-    /// Starts placement of a building: spawns ghost and stores selection.
-    /// </summary>
+    // Called on left click
+    private void HandleLeftClick(Vector2 screenPos)
+    {
+        if (selectedBuilding == null || ghostInstance == null) return;
+
+        // Only place if valid
+        if (IsValidPlacement(lastPointerWorldPos))
+        {
+            PlaceBuilding(lastPointerWorldPos);
+        }
+    }
+
+    // Called on right click
+    private void HandleRightClick(Vector2 screenPos)
+    {
+        CancelPlacement(); // cancel placement on right click
+    }
+
+    // Start placing a new building
     public void StartPlacement(BuildingData buildingData)
     {
-        CancelPlacement(); // Reset any previous placement
+        CancelPlacement(); // remove old ghost
 
         selectedBuilding = buildingData;
-        ghostInstance = Instantiate(buildingData.ghostPrefab);
+        ghostInstance = Instantiate(buildingData.ghostPrefab); // create ghost
         ghostVisualizer = ghostInstance.GetComponent<GhostVisualizer>();
 
         if (ghostVisualizer == null)
-        {
             Debug.LogWarning("Ghost prefab missing GhostVisualizer!");
-        }
     }
 
-    /// <summary>
-    /// Attempts to place the building at a valid position.
-    /// Checks resources, supply, and creates a construction site.
-    /// </summary>
+    // Actually place building in world
     private void PlaceBuilding(Vector3 position)
     {
         if (selectedBuilding == null) return;
 
-        // --- Required resources ---
+        // --- Check resources ---
         var required = new Dictionary<ResourceType, int>
         {
             { ResourceType.Gold, selectedBuilding.costGold },
             { ResourceType.Wood, selectedBuilding.costWood }
         };
 
-        // --- Check resources ---
         if (!resourceManager.HasEnoughResources(required))
         {
             string msg = BuildResourceErrorMessage(selectedBuilding, required);
-            messageUI.ShowMessage(msg);
-            Debug.Log(msg);
+            messageUI.ShowMessage(msg); // show message on screen
+            Debug.Log(msg);             // log in console
             return;
         }
 
-        // --- Check population/supply ---
+        // --- Check supply ---
         if (!resourceManager.HasFreeSupply(selectedBuilding.requiredPopulation))
         {
             string msg = $"{selectedBuilding.buildingName}: Not enough supply! " +
@@ -111,27 +130,22 @@ public class BuildingPlacementSystem : MonoBehaviour
             return;
         }
 
-        // --- Consume resources and supply ---
+        // --- Consume resources & supply ---
         resourceManager.ConsumeResources(required);
         resourceManager.ConsumeSupply(selectedBuilding.requiredPopulation);
 
-        // --- Create construction site ---
+        // --- Instantiate construction site ---
         GameObject constructionSite = new GameObject("ConstructionSite_" + selectedBuilding.buildingName);
         var construction = constructionSite.AddComponent<BuildingConstruction>();
         construction.Initialize(selectedBuilding, position);
 
-        // --- Add population cap if applicable ---
+        // --- Update supply cap if building provides supply ---
         if (selectedBuilding.providesPopulation)
-        {
             resourceManager.AddSupplyCap(selectedBuilding.populationProvided);
-        }
 
-        CancelPlacement();
+        CancelPlacement(); // remove ghost and reset state
     }
 
-    /// <summary>
-    /// Builds a detailed error message for missing resources.
-    /// </summary>
     private string BuildResourceErrorMessage(BuildingData building, Dictionary<ResourceType, int> required)
     {
         System.Text.StringBuilder sb = new System.Text.StringBuilder();
@@ -152,9 +166,7 @@ public class BuildingPlacementSystem : MonoBehaviour
         return sb.ToString();
     }
 
-    /// <summary>
-    /// Cancels current building placement and destroys ghost.
-    /// </summary>
+    // Cancel placement, remove ghost
     private void CancelPlacement()
     {
         if (ghostInstance != null)
@@ -165,9 +177,7 @@ public class BuildingPlacementSystem : MonoBehaviour
         selectedBuilding = null;
     }
 
-    /// <summary>
-    /// Checks if the placement position is valid (no obstacles, units, or other buildings).
-    /// </summary>
+    // Check if position is valid for building
     private bool IsValidPlacement(Vector3 position)
     {
         if (selectedBuilding == null) return false;
@@ -179,49 +189,29 @@ public class BuildingPlacementSystem : MonoBehaviour
             return false;
         }
 
-        // Calculate world size of prefab collider
+        // calculate world size and center of collider
         Vector3 worldSize = Vector3.Scale(prefabCollider.size, selectedBuilding.prefab.transform.localScale);
         Vector3 halfExtents = worldSize * 0.5f;
-
-        // Center position of the collider
         Vector3 center = position + Vector3.Scale(prefabCollider.center, selectedBuilding.prefab.transform.localScale);
 
+        // check for collisions with obstacles
         Collider[] hits = Physics.OverlapBox(center, halfExtents, Quaternion.identity, obstacleMask);
 
         foreach (Collider hit in hits)
         {
+            // ignore ghost itself
             if (ghostInstance != null && hit.transform.IsChildOf(ghostInstance.transform))
                 continue;
 
-            return false; // Collision detected
+            return false; // hit something ? invalid
         }
 
-        return true;
+        return true; // placement valid
     }
 
-    /// <summary>
-    /// Draws Gizmos in editor for debugging placement area.
-    /// </summary>
-    private void OnDrawGizmos()
+    // ESC pressed ? cancel
+    private void HandleExitPressed()
     {
-        if (selectedBuilding != null && ghostInstance != null)
-        {
-            BoxCollider prefabCollider = selectedBuilding.prefab.GetComponent<BoxCollider>();
-            if (prefabCollider != null)
-            {
-                Gizmos.color = Color.red;
-
-                Vector3 worldSize = Vector3.Scale(prefabCollider.size, selectedBuilding.prefab.transform.localScale);
-                Vector3 center = ghostInstance.transform.position + Vector3.Scale(prefabCollider.center, selectedBuilding.prefab.transform.localScale);
-
-                Gizmos.DrawWireCube(center, worldSize);
-            }
-        }
+        CancelPlacement();
     }
-
-    // --- Optional Improvements ---
-    // 1. Use object pooling for ghostInstance instead of instantiating/destroying each time.
-    // 2. Smooth movement of ghostInstance instead of snapping to hit.point.
-    // 3. Add snapping to grid based on footprintSize from BuildingData.
-    // 4. Extend IsValidPlacement to check terrain slope, water, or other gameplay rules.
 }

@@ -330,9 +330,9 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   selectionBoxUI: {fileID: 2075828560}
   canvas: {fileID: 1990978964}
-  unitLayer:
+  selectableLayer:
     serializedVersion: 2
-    m_Bits: 64
+    m_Bits: 576
   groundLayer:
     serializedVersion: 2
     m_Bits: 8
@@ -2979,7 +2979,7 @@ MonoBehaviour:
     m_Bits: 8
   obstacleMask:
     serializedVersion: 2
-    m_Bits: 448
+    m_Bits: 960
   messageUI: {fileID: 2006614597}
 --- !u!1 &1990978960
 GameObject:

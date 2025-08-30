@@ -17,7 +17,7 @@ MonoBehaviour:
   prefab: {fileID: 4296429689389196826, guid: 998c20b887febea4ebf8b59553e65f92, type: 3}
   ghostPrefab: {fileID: 4296429689389196826, guid: f159416496b83d1479bda97860c16ec8,
     type: 3}
-  buildTime: 5
+  buildTime: 10
   costGold: 50
   costWood: 100
   requiredPopulation: 0
