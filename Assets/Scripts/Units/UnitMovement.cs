@@ -1,10 +1,13 @@
 // ================= UnitMovement.cs =================
+using System;
 using UnityEngine;
 using UnityEngine.AI;
 
 [RequireComponent(typeof(NavMeshAgent))]
 public class UnitMovement : MonoBehaviour
 {
+    public event Action OnReachedDestination;
+    public event Action OnMoveCommandIssued;
     // Flag indicating if this unit is currently under player control (true) or AI control (false)
     public bool IsUnderPlayerControl { get; private set; }
 
@@ -34,6 +37,10 @@ public class UnitMovement : MonoBehaviour
 
             // Notify AIController to resume its normal state behavior
             aiController?.StartIdle();
+
+            // Trigger event when reached destination
+            OnReachedDestination?.Invoke();
+
         }
     }
 
@@ -55,5 +62,8 @@ public class UnitMovement : MonoBehaviour
 
         // Ensure the agent is not stopped
         agent.isStopped = false;
+
+        // אירוע שנקרא ברגע שקיבלה פקודת תנועה
+        OnMoveCommandIssued?.Invoke();
     }
 }

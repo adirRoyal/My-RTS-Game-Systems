@@ -4,7 +4,8 @@ using UnityEngine;
 
 public class UnitSelectionHandler : MonoBehaviour
 {
-    public event Action<Vector3> OnGroundClick; // event for when player clicks on ground
+    public int SelectedCount => selectedObjects.Count;
+
 
     [Header("UI References")]
     [SerializeField] private RectTransform selectionBoxUI; // the UI box that shows drag selection
@@ -29,6 +30,7 @@ public class UnitSelectionHandler : MonoBehaviour
     private readonly List<Selectable> allSelectables = new(); // all selectable objects in scene
 
     public event Action<int> OnSelectionChanged; // event for UI or other systems
+    public event Action<Vector3> OnGroundClick; // event for when player clicks on ground
 
     private void Awake()
     {
