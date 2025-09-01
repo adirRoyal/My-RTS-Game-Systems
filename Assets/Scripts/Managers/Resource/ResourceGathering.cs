@@ -4,41 +4,56 @@ using UnityEngine;
 public class ResourceGathering : MonoBehaviour
 {
     [Header("Gathering Settings")]
-    [SerializeField] private int gatherRate = 10;
-    [SerializeField] private float gatherInterval = 1.5f;
-    [SerializeField] private float gatherDistance = 2f;
-    [SerializeField] private float resourceSearchRadius = 15f;
+    [SerializeField] private int gatherRate = 10;              // Amount of resource gathered per cycle
+    [SerializeField] private float gatherInterval = 1.5f;      // Time between each gather cycle
+    [SerializeField] private float gatherDistance = 2f;        // Required distance from resource to gather
+    [SerializeField] private float resourceSearchRadius = 15f; // Radius to look for new resources when depleted
 
-    private UnitMovement unitMovement;
-    private ResourceNode targetResource;
-    private AIController aiController;
+    // Cached references
+    private UnitMovement unitMovement;     // Handles movement of the unit
+    private ResourceNode targetResource;   // Current resource node being gathered
+    private AIController aiController;     // AI state controller for this unit
 
+    // Coroutine handlers (so we can stop them cleanly)
     private Coroutine gatherCoroutine;
     private Coroutine arrivalCheckCoroutine;
+
+    // State flags
     private bool isGathering = false;
     private bool isMovingToResource = false;
 
     private void Awake()
     {
+        // Cache required components on the same GameObject
         unitMovement = GetComponent<UnitMovement>();
         aiController = GetComponent<AIController>();
     }
 
+    /// <summary>
+    /// Starts gathering from the specified resource node.
+    /// Cancels any previous gathering operation.
+    /// </summary>
     public void StartGathering(ResourceNode resourceNode)
     {
         if (resourceNode == null) return;
 
-        StopGathering(); // עצור פעולות קודמות
+        // Stop any previous gathering before starting a new one
+        StopGathering();
 
         targetResource = resourceNode;
-        targetResource.OnDepleted += OnResourceDepleted;
+        targetResource.OnDepleted += OnResourceDepleted; // Subscribe to depletion event
 
         isMovingToResource = true;
-        unitMovement.MoveTo(targetResource.transform.position);
+        unitMovement.MoveTo(targetResource.transform.position); // Move towards resource
 
+        // Start monitoring arrival at resource node
         arrivalCheckCoroutine = StartCoroutine(CheckArrivalAndGather());
     }
 
+    /// <summary>
+    /// Coroutine that checks if the unit has arrived near the target resource.
+    /// If close enough, switches to gathering mode.
+    /// </summary>
     private IEnumerator CheckArrivalAndGather()
     {
         while (isMovingToResource)
@@ -52,21 +67,26 @@ public class ResourceGathering : MonoBehaviour
             float distance = Vector3.Distance(transform.position, targetResource.transform.position);
             if (distance <= gatherDistance)
             {
+                // Arrived at resource node
                 isMovingToResource = false;
                 isGathering = true;
 
-                // Switch AI to GatheringState
+                // Switch AI to Gathering state (if applicable)
                 aiController?.SwitchState(new GatheringState(aiController));
 
+                // Start gathering loop
                 gatherCoroutine = StartCoroutine(GatherRoutine());
                 yield break;
             }
 
-            yield return null;
+            yield return null; // wait next frame
         }
     }
 
-
+    /// <summary>
+    /// Coroutine that continuously gathers resources while conditions are met.
+    /// Handles resource depletion and re-approach if pushed away.
+    /// </summary>
     private IEnumerator GatherRoutine()
     {
         while (isGathering)
@@ -77,11 +97,10 @@ public class ResourceGathering : MonoBehaviour
                 yield break;
             }
 
-            // אם היחידה נדחקה מהמשאב – תחזור אליו
+            // If the unit was pushed away, interrupt gathering and move back
             float distance = Vector3.Distance(transform.position, targetResource.transform.position);
             if (distance > gatherDistance)
             {
-                // עצור איסוף, חזור למשאב
                 isGathering = false;
                 isMovingToResource = true;
                 unitMovement.MoveTo(targetResource.transform.position);
@@ -89,17 +108,18 @@ public class ResourceGathering : MonoBehaviour
                 yield break;
             }
 
-            // בדיקה אם המשאב נגמר
+            // Stop if resource is empty
             if (targetResource.amount <= 0)
             {
                 OnResourceDepleted();
                 yield break;
             }
 
-            // איסוף בפועל
+            // Perform actual gathering
             ResourceType type = targetResource.resourceType;
             int gatheredAmount = targetResource.Gather(gatherRate);
 
+            // Add gathered resources to global ResourceManager (if available)
             if (GameManager.Instance?.ResourceManager != null)
                 GameManager.Instance.ResourceManager.AddResource(type, gatheredAmount);
 
@@ -107,33 +127,38 @@ public class ResourceGathering : MonoBehaviour
         }
     }
 
-
-
+    /// <summary>
+    /// Callback triggered when the resource node is depleted.
+    /// Stops gathering and attempts to find a new resource of the same type.
+    /// </summary>
     private void OnResourceDepleted()
     {
         if (targetResource != null)
-            targetResource.OnDepleted -= OnResourceDepleted;
+            targetResource.OnDepleted -= OnResourceDepleted; // Unsubscribe from old node
 
         ResourceType depletedType = targetResource != null ? targetResource.resourceType : ResourceType.Wood;
 
-        // עצירה מוחלטת של כל תהליכי האיסוף לפני המשך
-        StopGathering();
+        StopGathering(); // Ensure all gathering coroutines are stopped
 
+        // Look for the next available resource of the same type
         ResourceNode next = FindClosestResourceOfType(depletedType);
         if (next != null)
         {
-            // להמתין פריים אחד כדי שהקורוטינות הקודמות ייסגרו
+            // Delay by one frame to ensure coroutines from StopGathering() have finished
             StartCoroutine(RestartGathering(next));
         }
     }
 
     private IEnumerator RestartGathering(ResourceNode next)
     {
-        yield return null; // מחכה פריים אחד
+        yield return null; // wait 1 frame
         StartGathering(next);
     }
 
-
+    /// <summary>
+    /// Stops all gathering and resets internal state.
+    /// Returns unit to Idle or Patrol state.
+    /// </summary>
     private void StopGathering()
     {
         if (arrivalCheckCoroutine != null) StopCoroutine(arrivalCheckCoroutine);
@@ -150,11 +175,13 @@ public class ResourceGathering : MonoBehaviour
 
         targetResource = null;
 
-        // חזור למצב Idle / Patrol
+        // Return to idle behavior when not gathering
         aiController?.SwitchState(new IdleState(aiController));
     }
 
-
+    /// <summary>
+    /// Finds the closest available resource node of the specified type.
+    /// </summary>
     private ResourceNode FindClosestResourceOfType(ResourceType type)
     {
         Collider[] hits = Physics.OverlapSphere(transform.position, resourceSearchRadius);
@@ -178,7 +205,9 @@ public class ResourceGathering : MonoBehaviour
         return closest;
     }
 
-
+    /// <summary>
+    /// Cancels gathering behavior and issues a direct move command.
+    /// </summary>
     public void MoveTo(Vector3 position)
     {
         StopGathering();

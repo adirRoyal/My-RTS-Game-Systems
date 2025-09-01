@@ -1,5 +1,6 @@
 // ================= UnitMovement.cs =================
 using System;
+using Unity.VisualScripting;
 using UnityEngine;
 using UnityEngine.AI;
 
@@ -70,7 +71,7 @@ public class UnitMovement : MonoBehaviour
         // Ensure the agent is not stopped
         agent.isStopped = false;
 
-        // אירוע שנקרא ברגע שקיבלה פקודת תנועה
+        // Event called reached motion command
         OnMoveCommandIssued?.Invoke();
     }
 }

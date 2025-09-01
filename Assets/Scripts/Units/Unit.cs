@@ -1,21 +1,31 @@
 using UnityEngine;
 
-[RequireComponent(typeof(HealthSystem))]
+/// <summary>
+/// Represents a Unit in the game, holds data and health, and connects to UI health bars.
+/// </summary>
+[RequireComponent(typeof(HealthSystem))] // Ensure HealthSystem exists on this GameObject
 public class Unit : MonoBehaviour
 {
-    [SerializeField] private UnitData unitData;
-    [SerializeField] private HealthBar worldHealthBar; // canvas health bar מעל הראש
+    [Header("Unit Data")]
+    [SerializeField] private UnitData unitData;        // Reference to ScriptableObject containing unit info
 
-    private HealthSystem healthSystem;
+    [Header("UI")]
+    [SerializeField] private HealthBar worldHealthBar; // Health bar above unit in the world (World Canvas)
+
+    private HealthSystem healthSystem;                 // Internal reference to unit's HealthSystem
+
+    // Public getters for external access
     public UnitData Data => unitData;
     public HealthSystem Health => healthSystem;
 
     private void Awake()
     {
+        // --- Initialize health system ---
         healthSystem = GetComponent<HealthSystem>();
-        healthSystem.Initialize(unitData.maxHealth);
+        healthSystem.Initialize(unitData.maxHealth); // set current health to max from data
 
+        // --- Link health bar UI to this unit's health system ---
         if (worldHealthBar != null)
-            worldHealthBar.SetHealthSystem(healthSystem); // קישור לבריאות
+            worldHealthBar.SetHealthSystem(healthSystem); // makes UI follow health changes
     }
 }

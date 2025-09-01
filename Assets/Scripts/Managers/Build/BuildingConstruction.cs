@@ -5,28 +5,29 @@ using TMPro;
 using UnityEngine.AI;
 
 /// <summary>
-/// Handles the construction process of a building: spawns preview, shows world-space progress bar,
-/// animates the building rising from the ground, and finalizes construction.
+/// Handles the construction process of a building:
+/// - Shows preview (ghost) building
+/// - Animates building rising
+/// - Shows world-space progress bar
+/// - Finalizes construction
 /// </summary>
 public class BuildingConstruction : MonoBehaviour
 {
-    private BuildingData data;
-    private Vector3 finalPosition;
-    private float buildTime;
+    private BuildingData data;            // Data for the building
+    private Vector3 finalPosition;        // Where the building will be placed
+    private float buildTime;              // How long it takes to build
 
-    private GameObject previewInstance;
+    private GameObject previewInstance;   // Ghost building for preview
 
     // --- World-space UI ---
     private Canvas worldCanvas;
     private Slider progressBar;
     private TextMeshProUGUI progressText;
 
-    // >>> חדש: רפרנס ל-Obstacle של ה-ConstructionSite
-    private NavMeshObstacle siteObstacle;
-
+    private NavMeshObstacle siteObstacle; // NavMeshObstacle reference for ConstructionSite
 
     /// <summary>
-    /// Initializes the construction with building data and target position.
+    /// Initialize construction
     /// </summary>
     public void Initialize(BuildingData buildingData, Vector3 position, NavMeshObstacle siteObstacle = null)
     {
@@ -35,18 +36,18 @@ public class BuildingConstruction : MonoBehaviour
         buildTime = data.buildTime;
         this.siteObstacle = siteObstacle;
 
-        // --- Instantiate the preview building (ghost) ---
+        // --- Create ghost preview ---
         previewInstance = Instantiate(data.prefab, position + Vector3.down * 5f, Quaternion.identity, transform);
 
-        // >>> חשוב: לכבות כל הקוליידרים בזמן הבנייה כדי שלא ידחוף/יתקע Agents
+        // Disable colliders while building to prevent pushing units
         foreach (var col in previewInstance.GetComponentsInChildren<Collider>())
             col.enabled = false;
 
-        // אם יש בטעות NavMeshObstacle על הפריפאב – נכבה גם אותו בזמן הבנייה
+        // Disable NavMeshObstacle on ghost if exists
         foreach (var obs in previewInstance.GetComponentsInChildren<NavMeshObstacle>())
             obs.enabled = false;
 
-        // --- Create world-space UI for progress ---
+        // --- Create world-space progress UI ---
         CreateWorldUI();
 
         // --- Start building coroutine ---
@@ -54,38 +55,33 @@ public class BuildingConstruction : MonoBehaviour
     }
 
     /// <summary>
-    /// Creates a world-space canvas with progress bar and text above the preview.
+    /// Create world-space canvas, progress bar and text
     /// </summary>
     private void CreateWorldUI()
     {
-        // --- Canvas ---
+        // Create canvas
         GameObject canvasGO = new GameObject("ConstructionUI");
         canvasGO.transform.SetParent(previewInstance.transform, false);
         canvasGO.transform.localPosition = Vector3.up * 10f;
-        canvasGO.transform.localRotation = Quaternion.identity;
-        canvasGO.transform.localScale = Vector3.one;
-
         worldCanvas = canvasGO.AddComponent<Canvas>();
         worldCanvas.renderMode = RenderMode.WorldSpace;
         worldCanvas.sortingOrder = 500;
 
+        canvasGO.AddComponent<GraphicRaycaster>();
         CanvasScaler scaler = canvasGO.AddComponent<CanvasScaler>();
         scaler.dynamicPixelsPerUnit = 10f;
-
-        canvasGO.AddComponent<GraphicRaycaster>();
 
         RectTransform canvasRect = worldCanvas.GetComponent<RectTransform>();
         canvasRect.sizeDelta = new Vector2(3f, 0.5f);
 
-        // --- Slider (ProgressBar) ---
+        // Create slider
         GameObject sliderGO = new GameObject("ProgressBar");
         sliderGO.transform.SetParent(canvasGO.transform, false);
         progressBar = sliderGO.AddComponent<Slider>();
-        progressBar.interactable = false;
-        progressBar.transition = UnityEngine.UI.Selectable.Transition.None;
         progressBar.minValue = 0f;
         progressBar.maxValue = buildTime;
         progressBar.value = 0f;
+        progressBar.interactable = false;
 
         RectTransform sliderRect = progressBar.GetComponent<RectTransform>();
         sliderRect.anchorMin = Vector2.zero;
@@ -93,7 +89,7 @@ public class BuildingConstruction : MonoBehaviour
         sliderRect.offsetMin = Vector2.zero;
         sliderRect.offsetMax = Vector2.zero;
 
-        // --- Fill Image ---
+        // Create fill image
         GameObject fillGO = new GameObject("Fill");
         fillGO.transform.SetParent(sliderGO.transform, false);
         Image fillImage = fillGO.AddComponent<Image>();
@@ -108,14 +104,14 @@ public class BuildingConstruction : MonoBehaviour
         progressBar.fillRect = fillRect;
         progressBar.targetGraphic = fillImage;
 
-        // --- Build Time Text ---
+        // Create build time text
         GameObject textGO = new GameObject("BuildTimeText");
         textGO.transform.SetParent(sliderGO.transform, false);
         progressText = textGO.AddComponent<TextMeshProUGUI>();
         progressText.alignment = TextAlignmentOptions.Center;
         progressText.color = Color.black;
-        progressText.fontSize = 2; // Adjusted for world-space
         progressText.enableAutoSizing = true;
+        progressText.fontSize = 2;
         progressText.fontSizeMin = 1;
         progressText.fontSizeMax = 6;
 
@@ -128,7 +124,7 @@ public class BuildingConstruction : MonoBehaviour
     }
 
     /// <summary>
-    /// Ensures the world-space canvas always faces the main camera.
+    /// Make canvas always face the camera
     /// </summary>
     private void LateUpdate()
     {
@@ -140,7 +136,7 @@ public class BuildingConstruction : MonoBehaviour
     }
 
     /// <summary>
-    /// Coroutine for building the structure over time, animating the preview rising, updating progress bar, and finalizing construction.
+    /// Build animation coroutine
     /// </summary>
     private IEnumerator BuildRoutine()
     {
@@ -157,32 +153,28 @@ public class BuildingConstruction : MonoBehaviour
 
             if (progressBar != null) progressBar.value = elapsed;
             if (progressText != null)
-            {
-                float timeLeft = Mathf.Ceil(buildTime - elapsed);
-                progressText.text = $"{timeLeft:0}s";
-            }
+                progressText.text = $"{Mathf.Ceil(buildTime - elapsed):0}s";
 
             yield return null;
         }
 
-        // --- Finalize: instantiate the real building ---
+        // --- Spawn final building ---
         GameObject building = Instantiate(data.prefab, finalPosition, Quaternion.identity);
 
-        // >>> הפעלת הקוליידרים על הבניין האמיתי
+        // Enable colliders
         foreach (var col in building.GetComponentsInChildren<Collider>())
             col.enabled = true;
 
-        // >>> הוספת NavMeshObstacle לבניין הסופי (עם אותם פרמטרים כמו ב-siteObstacle)
+        // Add NavMeshObstacle
         var finalObstacle = building.GetComponent<NavMeshObstacle>();
         if (finalObstacle == null) finalObstacle = building.AddComponent<NavMeshObstacle>();
-
         finalObstacle.shape = NavMeshObstacleShape.Box;
         finalObstacle.carving = true;
         finalObstacle.carveOnlyStationary = true;
         finalObstacle.carvingMoveThreshold = 0.1f;
         finalObstacle.carvingTimeToStationary = 0.1f;
 
-        // למדוד לפי הקוליידר של הפריפאב (סקיילד), עם padding קטן
+        // Size & center from prefab collider
         BoxCollider prefabCollider = data.prefab.GetComponent<BoxCollider>();
         if (prefabCollider != null)
         {
@@ -193,9 +185,7 @@ public class BuildingConstruction : MonoBehaviour
             finalObstacle.center = scaledCenter;
         }
 
-        // >>> להרוס את ה-ConstructionSite (כולל ה-siteObstacle) רק אחרי שהבנייה מוכנה
+        // Destroy construction site (preview + UI)
         Destroy(gameObject);
     }
-
-    // CreateWorldUI() – כמו שהיה...
 }
