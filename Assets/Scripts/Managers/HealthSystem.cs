@@ -16,6 +16,14 @@ public class HealthSystem : MonoBehaviour
         currentHealth = maxHealth;                  // Set current health to max at start
     }
 
+    public void Initialize(int maxHealthValue)
+    {
+        maxHealth = maxHealthValue;
+        currentHealth = maxHealth;
+        isDead = false;
+        OnHealthChanged?.Invoke(currentHealth, maxHealth);
+    }
+
     /// <summary>
     /// מוריד חיים מהאובייקט
     /// </summary>

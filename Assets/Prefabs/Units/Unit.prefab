@@ -122,6 +122,7 @@ GameObject:
   - component: {fileID: 7197177524761526676}
   - component: {fileID: 7911565274505675909}
   - component: {fileID: 7280720387873358584}
+  - component: {fileID: 7629711592821136703}
   - component: {fileID: 386051801006586667}
   - component: {fileID: 5958462758739881473}
   - component: {fileID: -408192398869070870}
@@ -251,6 +252,20 @@ NavMeshAgent:
   m_BaseOffset: 1
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
+--- !u!114 &7629711592821136703
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4974378641072347464}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8f3bd0bfc1d178a47a2497a19256f306, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  unitData: {fileID: 11400000, guid: a5f1cde0a54813a428510b395878c073, type: 2}
+  worldHealthBar: {fileID: 1344843254266147836}
 --- !u!114 &386051801006586667
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -338,6 +353,7 @@ MonoBehaviour:
   gatherRate: 10
   gatherInterval: 1.5
   gatherDistance: 2
+  resourceSearchRadius: 15
 --- !u!114 &1750758191028584059
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -350,7 +366,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5a96303f214b5b04fa921f6bfb241f0b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  currentState: 0
   detectionRange: 10
   unitLayer:
     serializedVersion: 2
@@ -508,6 +523,18 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: d259671b17e90c44bb65e2e480be174b, type: 3}
+--- !u!114 &1344843254266147836 stripped
+MonoBehaviour:
+  m_CorrespondingSourceObject: {fileID: 3183939992683518246, guid: d259671b17e90c44bb65e2e480be174b,
+    type: 3}
+  m_PrefabInstance: {fileID: 4505419720074373850}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2bc3b7155b27d2e4e9292d8ccf00e37c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!224 &2340775223496621843 stripped
 RectTransform:
   m_CorrespondingSourceObject: {fileID: 2232217463085307337, guid: d259671b17e90c44bb65e2e480be174b,

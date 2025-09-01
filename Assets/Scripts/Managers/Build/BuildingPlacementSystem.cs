@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.AI;
 
 /// <summary>
 /// Handles player building placement: ghost preview, placement validation, resource & supply checks.
@@ -100,22 +101,23 @@ public class BuildingPlacementSystem : MonoBehaviour
     }
 
     // Actually place building in world
+    // Actually place building in world
     private void PlaceBuilding(Vector3 position)
     {
         if (selectedBuilding == null) return;
 
         // --- Check resources ---
         var required = new Dictionary<ResourceType, int>
-        {
-            { ResourceType.Gold, selectedBuilding.costGold },
-            { ResourceType.Wood, selectedBuilding.costWood }
-        };
+    {
+        { ResourceType.Gold, selectedBuilding.costGold },
+        { ResourceType.Wood, selectedBuilding.costWood }
+    };
 
         if (!resourceManager.HasEnoughResources(required))
         {
             string msg = BuildResourceErrorMessage(selectedBuilding, required);
-            messageUI.ShowMessage(msg); // show message on screen
-            Debug.Log(msg);             // log in console
+            messageUI.ShowMessage(msg);
+            Debug.Log(msg);
             return;
         }
 
@@ -134,17 +136,43 @@ public class BuildingPlacementSystem : MonoBehaviour
         resourceManager.ConsumeResources(required);
         resourceManager.ConsumeSupply(selectedBuilding.requiredPopulation);
 
-        // --- Instantiate construction site ---
+        // --- Instantiate construction site (parent) ---
         GameObject constructionSite = new GameObject("ConstructionSite_" + selectedBuilding.buildingName);
-        var construction = constructionSite.AddComponent<BuildingConstruction>();
-        construction.Initialize(selectedBuilding, position);
+        constructionSite.transform.position = position; // חשוב! שנייצב אותו במקום הנכון
 
-        // --- Update supply cap if building provides supply ---
-        if (selectedBuilding.providesPopulation)
-            resourceManager.AddSupplyCap(selectedBuilding.populationProvided);
+        // --- Compute obstacle size/center from prefab collider (scaled) ---
+        Vector3 obstSize = new Vector3(5, 5, 5);
+        Vector3 obstCenter = Vector3.zero;
+
+        BoxCollider prefabCollider = selectedBuilding.prefab.GetComponent<BoxCollider>();
+        if (prefabCollider != null)
+        {
+            Vector3 scaledSize = Vector3.Scale(prefabCollider.size, selectedBuilding.prefab.transform.localScale);
+            Vector3 scaledCenter = Vector3.Scale(prefabCollider.center, selectedBuilding.prefab.transform.localScale);
+
+            // תוספת מרווח קטן כדי ש־Agents לא "יידבקו" לגבול
+            const float padding = 0.5f;
+            obstSize = new Vector3(scaledSize.x + padding, scaledSize.y, scaledSize.z + padding);
+            obstCenter = scaledCenter;
+        }
+
+        // --- Add NavMeshObstacle on the ConstructionSite (stationary carving) ---
+        var siteObstacle = constructionSite.AddComponent<NavMeshObstacle>();
+        siteObstacle.shape = NavMeshObstacleShape.Box;
+        siteObstacle.carving = true;
+        siteObstacle.carveOnlyStationary = true;
+        siteObstacle.carvingMoveThreshold = 0.1f;
+        siteObstacle.carvingTimeToStationary = 0.1f;
+        siteObstacle.size = obstSize;
+        siteObstacle.center = obstCenter;
+
+        // --- Add construction logic (passes obstacle so it can be transferred on finalize) ---
+        var construction = constructionSite.AddComponent<BuildingConstruction>();
+        construction.Initialize(selectedBuilding, position, siteObstacle);
 
         CancelPlacement(); // remove ghost and reset state
     }
+
 
     private string BuildResourceErrorMessage(BuildingData building, Dictionary<ResourceType, int> required)
     {

@@ -61,38 +61,21 @@ public class SelectionPathVisualizer : MonoBehaviour
         activeEndPoints[mover] = endPoint;
 
         // הירשם גם לאירוע סיום הגעה
-        mover.OnReachedDestination += () =>
-        {
-            if (activeLines.TryGetValue(mover, out var l))
-            {
-                PoolManager.Instance.ReturnToPool(linePrefab, l.gameObject);
-                activeLines.Remove(mover);
-            }
+        mover.OnReachedDestination += () => Cleanup(mover);
 
-            if (activeEndPoints.TryGetValue(mover, out var e))
-            {
-                PoolManager.Instance.ReturnToPool(endPointPrefab, e);
-                activeEndPoints.Remove(mover);
-            }
-        };
+        // הירשם לאירוע השמדה של היחידה
+        mover.OnDestroyed += () => Cleanup(mover);
     }
 
     private void OnUnitDeselected(Selectable selectable)
     {
-        if (!selectable.TryGetComponent<UnitMovement>(out var mover))
+        if (selectable == null || selectable.gameObject == null)
             return;
 
-        if (activeLines.TryGetValue(mover, out var lr))
-        {
-            PoolManager.Instance.ReturnToPool(linePrefab, lr.gameObject);
-            activeLines.Remove(mover);
-        }
+        if (!selectable.TryGetComponent<UnitMovement>(out var mover) || mover == null)
+            return;
 
-        if (activeEndPoints.TryGetValue(mover, out var endPoint))
-        {
-            PoolManager.Instance.ReturnToPool(endPointPrefab, endPoint);
-            activeEndPoints.Remove(mover);
-        }
+        Cleanup(mover);
     }
 
     private void UpdateAllPaths(Vector3 targetPosition)
@@ -132,6 +115,23 @@ public class SelectionPathVisualizer : MonoBehaviour
 
             if (activeEndPoints.TryGetValue(unit, out var endPoint) && endPoint != null)
                 endPoint.transform.position = unit.TargetPosition + Vector3.up * pointYOffset;
+        }
+    }
+
+    private void Cleanup(UnitMovement mover)
+    {
+        if (activeLines.TryGetValue(mover, out var lr))
+        {
+            if (lr != null)
+                PoolManager.Instance.ReturnToPool(linePrefab, lr.gameObject);
+            activeLines.Remove(mover);
+        }
+
+        if (activeEndPoints.TryGetValue(mover, out var endPoint))
+        {
+            if (endPoint != null)
+                PoolManager.Instance.ReturnToPool(endPointPrefab, endPoint);
+            activeEndPoints.Remove(mover);
         }
     }
 }

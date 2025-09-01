@@ -68,5 +68,19 @@ public class InputManager : MonoBehaviour
     }
 
     private void OnEnable() => controls.Enable();
-    private void OnDisable() => controls.Disable();
+    private void OnDisable()
+    {
+        controls.Disable();
+
+        OnMoveInput = null;
+        OnZoomInput = null;
+        OnRotateInput = null;
+        OnBoostInput = null;
+        OnPointerPositionChanged = null;
+        OnRightClick = null;
+        OnLeftClick = null;
+        OnLeftPress = null;
+        OnLeftRelease = null;
+        OnExitPressed = null;
+    }
 }

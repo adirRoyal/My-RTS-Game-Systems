@@ -16,6 +16,13 @@ public class UnitMovement : MonoBehaviour
 
     private NavMeshAgent agent;       // Reference to the NavMeshAgent for pathfinding
     private AIController aiController; // Reference to AIController to resume AI logic after player command
+    public event Action OnDestroyed;
+
+    private void OnDestroy()
+    {
+        OnDestroyed?.Invoke();
+    }
+
 
     private void Awake()
     {

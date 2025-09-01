@@ -2,38 +2,112 @@ using TMPro;
 using UnityEngine;
 
 /// <summary>
-/// Controls the UI panel that displays detailed information about a selected ResourceNode.
-/// Handles showing, hiding, and live-updating the displayed resource amount.
-/// Designed to work with any Canvas render mode (Screen Space Overlay, Screen Space Camera, or World Space).
+/// ResourceNodeUIController handles displaying a detailed UI panel for a selected ResourceNode.
+/// This version subscribes to the centralized InputManager events instead of polling Input directly.
+/// Provides live updates of resource amounts and supports different Canvas render modes.
 /// </summary>
 public class ResourceNodeUIController : MonoBehaviour
 {
     [Header("UI Elements")]
-    [SerializeField] private GameObject panel; // The main info panel to display resource node details
-    [SerializeField] private TextMeshProUGUI resourceNameText; // UI text for displaying the resource type name
-    [SerializeField] private TextMeshProUGUI resourceAmountText; // UI text for displaying the remaining resource amount
+    [SerializeField] private GameObject panel;                  // Main UI panel to display resource info
+    [SerializeField] private TextMeshProUGUI resourceNameText;  // Text field to show resource type name
+    [SerializeField] private TextMeshProUGUI resourceAmountText;// Text field to show remaining resource amount
 
-    private ResourceNode currentNode; // Reference to the currently selected resource node (null if none is selected)
-    private Camera mainCamera; // Cached reference to the main camera for raycasting
-    private RectTransform panelRectTransform; // Cached RectTransform for positioning the panel
-    private Canvas parentCanvas; // Reference to the parent Canvas to determine render mode
+    // --- Internal state ---
+    private ResourceNode currentNode;          // Currently selected resource node
+    private Camera mainCamera;                 // Cached reference to main camera
+    private RectTransform panelRectTransform;  // Cached RectTransform of panel for positioning
+    private Canvas parentCanvas;               // Parent canvas to detect render mode
 
+    // --- Unity lifecycle ---
     private void Awake()
     {
-        // Cache references to improve performance and avoid repeated GetComponent calls
+        // Cache references for performance
         mainCamera = Camera.main;
         panelRectTransform = panel.GetComponent<RectTransform>();
         parentCanvas = panel.GetComponentInParent<Canvas>();
 
-        // Ensure the panel is hidden when the game starts
+        // Ensure the UI panel starts hidden
         HidePanel();
+    }
+
+    private void OnEnable()
+    {
+        // Subscribe to left click events from InputManager
+        // This allows decoupling input logic from the UI system
+        InputManager.OnLeftClick += HandleLeftClick;
+    }
+
+    private void OnDisable()
+    {
+        // Unsubscribe to prevent memory leaks or null references
+        InputManager.OnLeftClick -= HandleLeftClick;
+    }
+
+    /// <summary>
+    /// Called when the player performs a left click.
+    /// The InputManager provides the screen position of the click.
+    /// </summary>
+    /// <param name="screenPosition">Screen space coordinates of the mouse click</param>
+    private void HandleLeftClick(Vector2 screenPosition)
+    {
+        // Convert screen position to a ray into the 3D world
+        Ray ray = mainCamera.ScreenPointToRay(screenPosition);
+
+        // Perform a raycast to detect objects under the cursor
+        if (Physics.Raycast(ray, out RaycastHit hit))
+        {
+            // Attempt to get a ResourceNode component from the hit object
+            ResourceNode node = hit.collider.GetComponent<ResourceNode>();
+
+            if (node != null)
+            {
+                // If a resource node was clicked, show its information
+                ShowNodeInfo(node);
+            }
+            else
+            {
+                // Clicked somewhere else, hide the panel
+                HidePanel();
+            }
+        }
+    }
+
+    /// <summary>
+    /// Displays the UI panel and populates it with the resource node's data.
+    /// </summary>
+    /// <param name="node">ResourceNode to display</param>
+    private void ShowNodeInfo(ResourceNode node)
+    {
+        currentNode = node; // Keep track of the selected node
+
+        // Update the text fields with current resource info
+        resourceNameText.text = node.resourceType.ToString();
+        UpdateResourceAmount(node.amount);
+
+        // Make the panel visible
+        panel.SetActive(true);
+
+        // Position the panel based on the canvas render mode
+        if (parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay ||
+            parentCanvas.renderMode == RenderMode.ScreenSpaceCamera)
+        {
+            // For screen-space canvases, center the panel using anchoredPosition
+            panelRectTransform.anchoredPosition = Vector2.zero;
+        }
+        else
+        {
+            // For world-space canvases, place the panel in front of the camera
+            panelRectTransform.position = mainCamera.ViewportToWorldPoint(
+                new Vector3(0.5f, 0.5f, mainCamera.nearClipPlane + 1f)
+            );
+        }
     }
 
     private void Update()
     {
-        HandleMouseClick();
-
-        // If a resource node is currently displayed, update its amount in real time
+        // Continuously update the displayed resource amount for the currently selected node
+        // Optional improvement: subscribe to an event on the node to update only when changed
         if (currentNode != null)
         {
             UpdateResourceAmount(currentNode.amount);
@@ -41,68 +115,9 @@ public class ResourceNodeUIController : MonoBehaviour
     }
 
     /// <summary>
-    /// Checks for left mouse clicks and determines whether the player clicked on a ResourceNode.
+    /// Updates only the amount text of the selected resource node.
     /// </summary>
-    private void HandleMouseClick()
-    {
-        if (Input.GetMouseButtonDown(0)) // Left mouse button
-        {
-            Ray ray = mainCamera.ScreenPointToRay(Input.mousePosition);
-
-            // Raycast into the scene to detect clicked objects
-            if (Physics.Raycast(ray, out RaycastHit hit))
-            {
-                ResourceNode node = hit.collider.GetComponent<ResourceNode>();
-
-                if (node != null)
-                {
-                    // A resource node was clicked — display its info
-                    ShowNodeInfo(node);
-                }
-                else
-                {
-                    // Clicked somewhere else — hide the info panel
-                    HidePanel();
-                }
-            }
-        }
-    }
-
-    /// <summary>
-    /// Displays the UI panel with information about the given resource node.
-    /// Positions the panel at the center of the screen regardless of canvas type.
-    /// </summary>
-    private void ShowNodeInfo(ResourceNode node)
-    {
-        currentNode = node;
-
-        // Update UI texts
-        resourceNameText.text = node.resourceType.ToString();
-        UpdateResourceAmount(node.amount);
-
-        // Make the panel visible
-        panel.SetActive(true);
-
-        // Positioning logic depends on the Canvas render mode
-        if (parentCanvas.renderMode == RenderMode.ScreenSpaceOverlay ||
-            parentCanvas.renderMode == RenderMode.ScreenSpaceCamera)
-        {
-            // For screen-space canvases, anchoredPosition (0,0) means panel is centered
-            panelRectTransform.anchoredPosition = Vector2.zero;
-        }
-        else
-        {
-            // For world-space canvases, position the panel directly in front of the camera
-            panelRectTransform.position = mainCamera.ViewportToWorldPoint(
-                new Vector3(0.5f, 0.5f, mainCamera.nearClipPlane + 1f)
-            );
-        }
-    }
-
-    /// <summary>
-    /// Updates only the displayed amount text for the resource node.
-    /// Called each frame while a node is actively selected.
-    /// </summary>
+    /// <param name="amount">Current remaining amount of the resource</param>
     private void UpdateResourceAmount(int amount)
     {
         resourceAmountText.text = "Amount: " + amount;

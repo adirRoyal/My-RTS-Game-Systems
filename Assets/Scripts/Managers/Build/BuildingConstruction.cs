@@ -2,6 +2,7 @@ using UnityEngine;
 using UnityEngine.UI;
 using System.Collections;
 using TMPro;
+using UnityEngine.AI;
 
 /// <summary>
 /// Handles the construction process of a building: spawns preview, shows world-space progress bar,
@@ -20,17 +21,30 @@ public class BuildingConstruction : MonoBehaviour
     private Slider progressBar;
     private TextMeshProUGUI progressText;
 
+    // >>> חדש: רפרנס ל-Obstacle של ה-ConstructionSite
+    private NavMeshObstacle siteObstacle;
+
+
     /// <summary>
     /// Initializes the construction with building data and target position.
     /// </summary>
-    public void Initialize(BuildingData buildingData, Vector3 position)
+    public void Initialize(BuildingData buildingData, Vector3 position, NavMeshObstacle siteObstacle = null)
     {
         data = buildingData;
         finalPosition = position;
         buildTime = data.buildTime;
+        this.siteObstacle = siteObstacle;
 
         // --- Instantiate the preview building (ghost) ---
         previewInstance = Instantiate(data.prefab, position + Vector3.down * 5f, Quaternion.identity, transform);
+
+        // >>> חשוב: לכבות כל הקוליידרים בזמן הבנייה כדי שלא ידחוף/יתקע Agents
+        foreach (var col in previewInstance.GetComponentsInChildren<Collider>())
+            col.enabled = false;
+
+        // אם יש בטעות NavMeshObstacle על הפריפאב – נכבה גם אותו בזמן הבנייה
+        foreach (var obs in previewInstance.GetComponentsInChildren<NavMeshObstacle>())
+            obs.enabled = false;
 
         // --- Create world-space UI for progress ---
         CreateWorldUI();
@@ -139,10 +153,8 @@ public class BuildingConstruction : MonoBehaviour
             elapsed += Time.deltaTime;
             float t = Mathf.Clamp01(elapsed / buildTime);
 
-            // --- Animate preview rising from underground ---
             previewInstance.transform.position = Vector3.Lerp(startPos, targetPos, t);
 
-            // --- Update progress bar and text ---
             if (progressBar != null) progressBar.value = elapsed;
             if (progressText != null)
             {
@@ -153,21 +165,37 @@ public class BuildingConstruction : MonoBehaviour
             yield return null;
         }
 
-        // --- Finalize construction: instantiate the real building ---
-        Instantiate(data.prefab, finalPosition, Quaternion.identity);
+        // --- Finalize: instantiate the real building ---
+        GameObject building = Instantiate(data.prefab, finalPosition, Quaternion.identity);
 
-        // --- Add supply if building provides it ---
-        if (data.providesPopulation)
+        // >>> הפעלת הקוליידרים על הבניין האמיתי
+        foreach (var col in building.GetComponentsInChildren<Collider>())
+            col.enabled = true;
+
+        // >>> הוספת NavMeshObstacle לבניין הסופי (עם אותם פרמטרים כמו ב-siteObstacle)
+        var finalObstacle = building.GetComponent<NavMeshObstacle>();
+        if (finalObstacle == null) finalObstacle = building.AddComponent<NavMeshObstacle>();
+
+        finalObstacle.shape = NavMeshObstacleShape.Box;
+        finalObstacle.carving = true;
+        finalObstacle.carveOnlyStationary = true;
+        finalObstacle.carvingMoveThreshold = 0.1f;
+        finalObstacle.carvingTimeToStationary = 0.1f;
+
+        // למדוד לפי הקוליידר של הפריפאב (סקיילד), עם padding קטן
+        BoxCollider prefabCollider = data.prefab.GetComponent<BoxCollider>();
+        if (prefabCollider != null)
         {
-            GameManager.Instance.ResourceManager.AddSupplyCap(data.populationProvided);
+            Vector3 scaledSize = Vector3.Scale(prefabCollider.size, data.prefab.transform.localScale);
+            Vector3 scaledCenter = Vector3.Scale(prefabCollider.center, data.prefab.transform.localScale);
+            const float padding = 0.5f;
+            finalObstacle.size = new Vector3(scaledSize.x + padding, scaledSize.y, scaledSize.z + padding);
+            finalObstacle.center = scaledCenter;
         }
 
-        // --- Clean up preview and UI ---
+        // >>> להרוס את ה-ConstructionSite (כולל ה-siteObstacle) רק אחרי שהבנייה מוכנה
         Destroy(gameObject);
     }
 
-    // --- Optional Improvements ---
-    // 1. Add construction sound or particle effects during BuildRoutine.
-    // 2. Smooth progress bar color gradient from red to green as construction progresses.
-    // 3. Use object pooling for prefab instances to reduce runtime instantiation overhead.
+    // CreateWorldUI() – כמו שהיה...
 }

@@ -266,6 +266,7 @@ GameObject:
   - component: {fileID: 5862977602619414600}
   - component: {fileID: -1023570508602739148}
   - component: {fileID: 391507645755008179}
+  - component: {fileID: 4263733376808105389}
   m_Layer: 0
   m_Name: Castle Ghost FBX 1
   m_TagString: Untagged
@@ -327,6 +328,22 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 11.57, y: 5.91, z: 14.96}
   m_Center: {x: 0, y: 3.05, z: 0}
+--- !u!208 &4263733376808105389
+NavMeshObstacle:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 4296429689389196826}
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Shape: 1
+  m_Extents: {x: 5.785, y: 5.05, z: 7.48}
+  m_MoveThreshold: 0.1
+  m_Carve: 1
+  m_CarveOnlyStationary: 1
+  m_Center: {x: 0, y: 4.79, z: 0}
+  m_TimeToStationary: 0.5
 --- !u!1 &5530191301459761274
 GameObject:
   m_ObjectHideFlags: 0

@@ -11,6 +11,10 @@ public class UnitSelectionHandler : MonoBehaviour
     [SerializeField] private RectTransform selectionBoxUI; // the UI box that shows drag selection
     [SerializeField] private Canvas canvas; // canvas used to draw selection box
 
+    [Header("Selection UI")]
+    [SerializeField] private SelectionPanelUI selectionPanelUI;
+
+
     [Header("Layers")]
     [SerializeField] private LayerMask selectableLayer; // layer of units/buildings
     [SerializeField] private LayerMask groundLayer; // layer of the ground
@@ -51,6 +55,8 @@ public class UnitSelectionHandler : MonoBehaviour
         InputManager.OnRightClick += HandleRightClick;
         InputManager.OnLeftPress += HandleLeftPress;
         InputManager.OnLeftRelease += HandleLeftRelease;
+
+        OnSelectionChanged += OnSelectionChangedHandler; 
     }
 
     private void OnDisable()
@@ -60,6 +66,7 @@ public class UnitSelectionHandler : MonoBehaviour
         InputManager.OnRightClick -= HandleRightClick;
         InputManager.OnLeftPress -= HandleLeftPress;
         InputManager.OnLeftRelease -= HandleLeftRelease;
+        OnSelectionChanged -= OnSelectionChangedHandler; 
     }
 
     private void OnPointerPositionChanged(Vector2 pointerPos)
@@ -267,4 +274,22 @@ public class UnitSelectionHandler : MonoBehaviour
         // remove selectable object dynamically
         allSelectables.Remove(selectable);
     }
+
+    private void OnSelectionChangedHandler(int count)
+    {
+        if (selectionPanelUI != null)
+        {
+            List<Unit> selectedUnits = new List<Unit>();
+            foreach (var sel in selectedObjects)
+            {
+                if (sel.TryGetComponent<Unit>(out var unit))
+                    selectedUnits.Add(unit);
+            }
+            selectionPanelUI.UpdateSelection(selectedUnits);
+        }
+    }
+
+
+
+
 }
